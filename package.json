@@ -1,0 +1,42 @@
+{
+  "name": "eslintxd",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Deamonified eslint with <5ms run time",
+  "main": "index.js",
+  "directories": {
+    "bin": "./zig-out/bin"
+  },
+  "scripts": {
+    "prepublishOnly": "tsc && node scripts/clean-bin.js",
+    "postinstall": "node scripts/postinstall.js",
+    "start": " tsc && node index.js --debug",
+    "test": "tsc && node --test"
+  },
+  "files": [
+    "index.js",
+    "src/**/*.{js,zig}",
+    "scripts/**/*.js",
+    "zig-out",
+    "build.zig",
+    "build.zig.zon"
+  ],
+  "author": "zenshixd",
+  "license": "MIT",
+  "dependencies": {
+    "eslint": "^9.13.0",
+    "tar-stream": "^3.1.7",
+    "unzipper": "^0.12.3",
+    "xz-decompress": "^0.2.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.54",
+    "@types/tar-stream": "^3.1.3",
+    "@types/unzipper": "^0.10.10",
+    "typescript": "^5.6.2",
+    "prettier": "^3.1.0"
+  }
+}
