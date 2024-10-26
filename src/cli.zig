@@ -13,6 +13,22 @@ const ESLINTXD_SOCKET_FILENAME = "eslintxd.sock";
 
 pub const CliArgs = struct {
     version: bool = false,
+    config: ?[]const u8,
+    stdin: bool,
+    @"stdin-filename": []const u8,
+    fix: bool = false,
+    @"fix-dry-run": bool = false,
+    @"fix-to-stdout": bool = false,
+    format: []const u8 = "stylish",
+    @"ignore-path": ?[]const u8,
+    @"ignore-pattern": ?[]const u8,
+    @"no-ignore": bool = false,
+
+    pub const __shorts__ = .{
+        .version = .v,
+        .config = .c,
+        .format = .f,
+    };
 };
 
 pub fn main() !void {
@@ -24,18 +40,9 @@ pub fn main() !void {
     var gpa = std.heap.FixedBufferAllocator.init(&alloc_buffer);
     debugLog("allocated {d} buffer", .{std.fmt.fmtIntSizeBin(alloc_buffer.len)});
 
-    const cli = try simargs.parse(gpa.allocator(), CliArgs, null, package.version);
-    if (cli.positional_args.len == 0) {
-        std.debug.print("No filename provided\n", .{});
-        return;
-    }
+    const cli = try simargs.parse(gpa.allocator(), CliArgs, "[filename]", package.version);
 
     const socketFilename = try getSocketFilename(gpa.allocator());
-    const filename = cli.positional_args[0];
-    debugLog("filename: {s}", .{filename});
-    const isAbsolute = std.fs.path.isAbsolute(filename);
-    const fullPath = if (!isAbsolute) try std.fs.path.resolve(gpa.allocator(), &.{ try std.process.getCwdAlloc(gpa.allocator()), filename }) else filename;
-
     const stream = try connectToEslintDaemon(gpa.allocator(), socketFilename);
     defer stream.close();
 
@@ -44,10 +51,10 @@ pub fn main() !void {
 
     const cwd = try std.process.getCwdAlloc(gpa.allocator());
     const buf = try gpa.allocator().alloc(u8, 1024);
+    try stream.writeAll("cwd=");
     try stream.writeAll(cwd);
-    try stream.writeAll(&.{0});
-    try stream.writeAll(fullPath);
-    try stream.writeAll(&.{0});
+    try stream.writeAll("\n");
+    try writeArgs(stream.writer(), cli.args);
     try streamUntilEof(stdin.reader(), stream.writer(), buf);
     try stream.writeAll(&.{0});
 
@@ -67,6 +74,32 @@ fn debugLog(comptime fmt: []const u8, args: anytype) void {
     //const timeArgs = if (time < 1_000_000) .{ time / 1_000, "ns" } else .{ time / 1_000_000, "ms" };
     const timeArgs = .{ time / 1_000, "μs" };
     std.fmt.format(stdout, " [{d}{s} elapsed]\n", timeArgs) catch @panic("failed to write to stdout");
+}
+
+fn writeArgs(writer: anytype, args: CliArgs) !void {
+    const fields = @typeInfo(CliArgs).Struct.fields;
+    inline for (fields) |field| {
+        if (comptime std.mem.eql(u8, field.name, "version")) {
+            continue;
+        }
+
+        try writer.writeAll(field.name ++ "=");
+        const fieldType = @typeInfo(field.type);
+        if (fieldType == .Optional) {
+            if (@field(args, field.name)) |value| {
+                try writer.writeAll(value);
+            }
+        } else if (fieldType == .Array or fieldType == .Pointer) {
+            try writer.writeAll(@field(args, field.name));
+        } else if (fieldType == .Bool) {
+            try writer.writeAll(if (@field(args, field.name)) "1" else "0");
+        } else {
+            @compileError("unsupported field type on field: " ++ field.name ++ " type: " ++ @typeName(field.type));
+        }
+
+        try writer.writeAll("\n");
+    }
+    try writer.writeAll("\n");
 }
 
 fn streamUntilEof(source_reader: anytype, dest_writer: anytype, buf: []u8) !void {

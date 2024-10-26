@@ -1,6 +1,6 @@
 {
   "name": "eslintxd",
-  "version": "0.0.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Deamonified eslint with <5ms run time",
   "main": "index.js",

@@ -27,6 +27,8 @@ async function build() {
       isDebug ? "-Doptimize=Debug" : "-Doptimize=ReleaseFast",
       "--summary",
       "all",
+      "--",
+      "--version",
     ],
     {
       cwd,
